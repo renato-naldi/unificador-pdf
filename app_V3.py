@@ -1,7 +1,6 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
-import base64
 
 # Configuração da página
 st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
@@ -14,12 +13,12 @@ with col_logo:
         unsafe_allow_html=True
     )
 with col_titulo:
-    st.subheader("Secretaria de Administração")
-    st.markdown("<p style='margin-top:-15px; color:gray; font-size:14px;'>Departamento de Contratos e Convênios — Sistema de Unificação</p>", unsafe_allow_html=True)
+    st.subheader("Secretaria de Educação de Taubaté")
+    st.markdown("<p style='margin-top:-15px; color:gray; font-size:14px;'>Setor de Contratos — Sistema de Unificação</p>", unsafe_allow_html=True)
 
 st.write("---")
 st.title("📄 Unificador de PDF Profissional")
-st.write("Suba seus documentos, confira o conteúdo de cada um, ordene e filtre as páginas.")
+st.write("Suba seus documentos, identifique o conteúdo de cada um, ordene e filtre as páginas.")
 
 # --- Rodapé Fixo ---
 st.markdown(
@@ -44,7 +43,7 @@ st.markdown(
     }
     </style>
     <div class="footer">
-        Desenvolvido por <strong>Renatö Naldi</strong>
+        Desenvolvido por <strong>Renato Naldi</strong>
     </div>
     """,
     unsafe_allow_html=True
@@ -89,17 +88,25 @@ if st.session_state.lista_arquivos:
         st.rerun()
         
     st.subheader("🔄 1. Organizar Sequência e Filtro de Páginas")
-    st.info("Ajuste a ordem pelas setas, digite o intervalo de páginas ou abra a pré-visualização para checar o documento.")
+    st.info("Ajuste a ordem pelas setas ou abra o menu abaixo para ler o início do texto do documento.")
     
     for i in range(tamanho):
         arq_atual = lista[i]
+        texto_inicial = ""
         
         try:
             pdf_bytes = arq_atual.getvalue()
             reader = PdfReader(io.BytesIO(pdf_bytes))
             total_paginas = len(reader.pages)
+            
+            # --- NOVO: Extrai as primeiras linhas da primeira página para identificação ---
+            if total_paginas > 0:
+                texto_completo = reader.pages[0].extract_text() or ""
+                # Pega os primeiros 600 caracteres para não sobrecarregar a tela
+                texto_inicial = texto_completo[:600].strip()
         except:
             total_paginas = 0
+            texto_inicial = "Não foi possível ler o texto deste arquivo."
 
         # Caixa visual de cada arquivo
         with st.container(border=True):
@@ -129,16 +136,13 @@ if st.session_state.lista_arquivos:
                     lista[i], lista[i+1] = lista[i+1], lista[i]
                     st.rerun()
             
-            # --- NOVO: Pré-visualização do PDF embutida ---
-            with st.expander("🔍 Visualizar este PDF"):
-                try:
-                    # Converte o arquivo para Base64 para embutir no HTML
-                    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-                    # Cria um iframe HTML para renderizar o leitor nativo do navegador
-                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
-                    st.markdown(pdf_display, unsafe_allow_html=True)
-                except Exception as e:
-                    st.error(f"Não foi possível visualizar este arquivo: {e}")
+            # --- ALTERADO: Agora exibe texto puro com segurança sem travar o navegador ---
+            with st.expander("🔍 Espiar início do texto deste documento"):
+                if texto_inicial:
+                    st.markdown("**Início do documento (Página 1):**")
+                    st.code(texto_inicial, language="text")
+                else:
+                    st.warning("Este arquivo parece conter apenas imagens digitalizadas (sem reconhecimento de texto OCR).")
 
     st.subheader("⚙️ 2. Opções de Saída")
     comprimir = st.checkbox("Ativar compactação de tamanho do PDF final (Reduz o peso do arquivo)", value=True)
@@ -148,7 +152,7 @@ if st.session_state.lista_arquivos:
     # Processamento da Unificação
     if st.button("Executar Unificação e Aplicar Filtros", type="primary"):
         if len(lista) < 2:
-            st.error("Por favor, selecione pelo menos 2 arquivos PDF para combinar.")
+            st.error("Por favor, selecione pelo menos 2 arquivos PDF para combinação.")
         else:
             with st.spinner("Processando, filtrando e compactando seus documentos..."):
                 try:
