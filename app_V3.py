@@ -1,11 +1,12 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
+import base64
 
 # Configuração da página
 st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
 
-# --- CORRIGIDO: Passado o argumento [1, 4] para definir a proporção das colunas ---
+# --- Cabeçalho Institucional ---
 col_logo, col_titulo = st.columns([1, 4])
 with col_logo:
     st.markdown(
@@ -18,9 +19,9 @@ with col_titulo:
 
 st.write("---")
 st.title("📄 Unificador de PDF Profissional")
-st.write("Suba seus documentos, remova páginas indesejadas, ordene e comprima o resultado.")
+st.write("Suba seus documentos, confira o conteúdo de cada um, ordene e filtre as páginas.")
 
-# --- CUSTOMIZAÇÃO: Rodapé Fixo ---
+# --- Rodapé Fixo ---
 st.markdown(
     """
     <style>
@@ -49,7 +50,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Inicializa as estruturas na sessão se não existirem
+# Inicializa as estruturas na sessão
 if "lista_arquivos" not in st.session_state:
     st.session_state.lista_arquivos = []
 if "config_paginas" not in st.session_state:
@@ -65,7 +66,7 @@ arquivos_enviados = st.file_uploader(
     key=f"uploader_{st.session_state.uploader_key}"
 )
 
-# Sincroniza os uploads com a sessão do Streamlit
+# Sincroniza os uploads com a sessão
 if arquivos_enviados:
     nomes_existentes = [arq.name for arq in st.session_state.lista_arquivos]
     for arq in arquivos_enviados:
@@ -88,32 +89,32 @@ if st.session_state.lista_arquivos:
         st.rerun()
         
     st.subheader("🔄 1. Organizar Sequência e Filtro de Páginas")
-    st.info("Ajuste a ordem pelas setas. Se precisar remover páginas, digite o intervalo desejado no campo correspondente.")
+    st.info("Ajuste a ordem pelas setas, digite o intervalo de páginas ou abra a pré-visualização para checar o documento.")
     
     for i in range(tamanho):
         arq_atual = lista[i]
         
         try:
-            reader = PdfReader(io.BytesIO(arq_atual.getvalue()))
+            pdf_bytes = arq_atual.getvalue()
+            reader = PdfReader(io.BytesIO(pdf_bytes))
             total_paginas = len(reader.pages)
         except:
             total_paginas = 0
 
-        # Cria uma caixa visual para cada arquivo
+        # Caixa visual de cada arquivo
         with st.container(border=True):
-            # CORRIGIDO: Passado o argumento [4, 3, 1, 1] para dimensionar as colunas internas de controle
-            col_nome, col_paginas, col_subir, col_descer = st.columns([4, 3, 1, 1])
+            col_nome, col_paginas, col_subir, col_descer = st.columns([2, 2, 0.5, 0.5])
             
             with col_nome:
                 st.write(f"**{i+1}.** `{arq_atual.name}`")
-                st.caption(f"Tamanho total original: {total_paginas} página(s)")
+                st.caption(f"Tamanho original: {total_paginas} página(s)")
                 
             with col_paginas:
                 chave_pag = f"paginas_{arq_atual.name}_{i}"
                 intervalo = st.text_input(
                     "Páginas a manter (Ex: 1-3, 5):", 
                     value="", 
-                    placeholder="Deixe vazio para todas",
+                    placeholder="Todas",
                     key=chave_pag
                 )
                 st.session_state.config_paginas[arq_atual.name] = intervalo
@@ -127,13 +128,24 @@ if st.session_state.lista_arquivos:
                 if st.button("⬇️", key=f"descer_{i}", disabled=(i == tamanho - 1)):
                     lista[i], lista[i+1] = lista[i+1], lista[i]
                     st.rerun()
+            
+            # --- NOVO: Pré-visualização do PDF embutida ---
+            with st.expander("🔍 Visualizar este PDF"):
+                try:
+                    # Converte o arquivo para Base64 para embutir no HTML
+                    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+                    # Cria um iframe HTML para renderizar o leitor nativo do navegador
+                    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
+                    st.markdown(pdf_display, unsafe_allow_html=True)
+                except Exception as e:
+                    st.error(f"Não foi possível visualizar este arquivo: {e}")
 
     st.subheader("⚙️ 2. Opções de Saída")
     comprimir = st.checkbox("Ativar compactação de tamanho do PDF final (Reduz o peso do arquivo)", value=True)
 
     st.write("---")
     
-    # Processamento da Unificação Avançada
+    # Processamento da Unificação
     if st.button("Executar Unificação e Aplicar Filtros", type="primary"):
         if len(lista) < 2:
             st.error("Por favor, selecione pelo menos 2 arquivos PDF para combinar.")
@@ -186,4 +198,4 @@ if st.session_state.lista_arquivos:
                         mime="application/pdf"
                     )
                 except Exception as e:
-                    st.error(f"Erro ao processar as regras de páginas ou unificação: {e}. Certifique-se de digitar os intervalos corretamente (ex: 1-5).")
+                    st.error(f"Erro ao processar as regras de páginas ou unificação: {e}")
