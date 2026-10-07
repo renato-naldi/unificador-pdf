@@ -6,9 +6,8 @@ import io
 st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
 
 # --- CUSTOMIZAÇÃO: Cabeçalho com Identificação Visual ---
-col_logo, col_titulo = st.columns([1, 4])
+col_logo, col_titulo = st.columns()
 with col_logo:
-    # Renderiza um ícone/brasão institucional no topo usando HTML de forma leve
     st.markdown(
         "<div style='font-size: 55px; text-align: center; margin-top: -5px;'>🏛️</div>", 
         unsafe_allow_html=True
@@ -54,13 +53,17 @@ st.markdown(
 if "lista_arquivos" not in st.session_state:
     st.session_state.lista_arquivos = []
 if "config_paginas" not in st.session_state:
-    st.session_state.config_paginas = {}
+    st.session_state.config_paginas = []
+# Chave dinâmica para forçar a limpeza do componente de upload
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
-# Campo para upload de múltiplos arquivos
+# Campo para upload de múltiplos arquivos (usa chave dinâmica para permitir reset completo)
 arquivos_enviados = st.file_uploader(
     "Escolha os arquivos PDF", 
     type="pdf", 
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    key=f"uploader_{st.session_state.uploader_key}"
 )
 
 # Sincroniza os uploads com a sessão do Streamlit
@@ -78,13 +81,19 @@ if st.session_state.lista_arquivos:
     lista = st.session_state.lista_arquivos
     tamanho = len(lista)
     
+    # --- NOVO: Botão Limpar Tudo ---
+    if st.button("🗑️ Limpar Todos os Arquivos", type="secondary"):
+        st.session_state.lista_arquivos = []
+        st.session_state.config_paginas = {}
+        st.session_state.uploader_key += 1  # Muda a chave para resetar visualmente o uploader
+        st.rerun()
+        
     st.subheader("🔄 1. Organizar Sequência e Filtro de Páginas")
     st.info("Ajuste a ordem pelas setas. Se precisar remover páginas, digite o intervalo desejado no campo correspondente.")
     
     for i in range(tamanho):
         arq_atual = lista[i]
         
-        # Lê a quantidade total de páginas do arquivo original para orientar o usuário
         try:
             reader = PdfReader(io.BytesIO(arq_atual.getvalue()))
             total_paginas = len(reader.pages)
@@ -93,14 +102,13 @@ if st.session_state.lista_arquivos:
 
         # Cria uma caixa visual para cada arquivo
         with st.container(border=True):
-            col_nome, col_paginas, col_subir, col_descer = st.columns([4, 3, 1, 1])
+            col_nome, col_paginas, col_subir, col_descer = st.columns()
             
             with col_nome:
                 st.write(f"**{i+1}.** `{arq_atual.name}`")
                 st.caption(f"Tamanho total original: {total_paginas} página(s)")
                 
             with col_paginas:
-                # Input para filtrar as páginas (Ex: "1-5", "1,3,5" ou vazio para tudo)
                 chave_pag = f"paginas_{arq_atual.name}_{i}"
                 intervalo = st.text_input(
                     "Páginas a manter (Ex: 1-3, 5):", 
@@ -108,6 +116,9 @@ if st.session_state.lista_arquivos:
                     placeholder="Deixe vazio para todas",
                     key=chave_pag
                 )
+                # Garante inicialização do dicionário se necessário
+                if isinstance(st.session_state.config_paginas, list):
+                    st.session_state.config_paginas = {}
                 st.session_state.config_paginas[arq_atual.name] = intervalo
                 
             with col_subir:
@@ -121,7 +132,7 @@ if st.session_state.lista_arquivos:
                     st.rerun()
 
     st.subheader("⚙️ 2. Opções de Saída")
-    comprimir = st.checkbox("⚙️ Ativar compactação de tamanho do PDF final (Reduz o peso do arquivo)", value=True)
+    comprimir = st.checkbox("Ativar compactação de tamanho do PDF final (Reduz o peso do arquivo)", value=True)
 
     st.write("---")
     
@@ -135,17 +146,16 @@ if st.session_state.lista_arquivos:
                     merger = PdfWriter()
                     
                     for arquivo_pdf in lista:
-                        # Lê o arquivo da memória
                         pdf_bytes = arquivo_pdf.getvalue()
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         total_pags = len(reader.pages)
                         
-                        filtro = st.session_state.config_paginas.get(arquivo_pdf.name, "").strip()
+                        filtro = ""
+                        if isinstance(st.session_state.config_paginas, dict):
+                            filtro = st.session_state.config_paginas.get(arquivo_pdf.name, "").strip()
                         
-                        # Se houver um filtro de páginas configurado
                         if filtro:
                             paginas_a_incluir = []
-                            # Interpreta formatos como "1-3, 5"
                             partes = filtro.split(',')
                             for parte in partes:
                                 if '-' in parte:
@@ -159,16 +169,12 @@ if st.session_state.lista_arquivos:
                                         if 0 <= idx < total_pags:
                                             paginas_a_incluir.append(idx)
                             
-                            # Adiciona ao merger apenas as páginas filtradas
                             for pag_idx in paginas_a_incluir:
                                 merger.add_page(reader.pages[pag_idx])
                         else:
-                            # Caso contrário, adiciona o documento inteiro
                             merger.append(reader)
                     
-                    # Aplica a compressão se marcada pelo usuário
                     if comprimir:
-                        # Percorre as páginas injetadas no escritor e comprime os fluxos de dados internos
                         for page in merger.pages:
                             page.compress_content_streams()
 
