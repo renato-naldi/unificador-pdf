@@ -4,7 +4,7 @@ import io
 from pdf2image import convert_from_bytes
 
 # Configuração da página
-st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
+st.set_page_config(page_title="Unificador de PDF", page_icon="📄", layout="centered")
 
 # --- Cabeçalho Institucional ---
 col_logo, col_titulo = st.columns([1, 4])
@@ -14,8 +14,8 @@ with col_logo:
         unsafe_allow_html=True
     )
 with col_titulo:
-    st.subheader("Secretaria de Educação de Taubaté")
-    st.markdown("<p style='margin-top:-15px; color:gray; font-size:14px;'>Setor de Contratos — Sistema de Unificação</p>", unsafe_allow_html=True)
+    st.subheader("Secretaria de Administração")
+    st.markdown("<p style='margin-top:-15px; color:gray; font-size:14px;'>Departamento de Contratos e Convênios — Sistema de Unificação</p>", unsafe_allow_html=True)
 
 st.write("---")
 st.title("📄 Unificador de PDF Profissional")
@@ -44,7 +44,7 @@ st.markdown(
     }
     </style>
     <div class="footer">
-        Desenvolvido por <strong>Renato Naldi</strong>
+        Desenvolvido por <strong>Renatö Naldi</strong>
     </div>
     """,
     unsafe_allow_html=True
