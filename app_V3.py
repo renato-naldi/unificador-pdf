@@ -5,8 +5,8 @@ import io
 # Configuração da página
 st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
 
-# --- CUSTOMIZAÇÃO: Cabeçalho com Identificação Visual ---
-col_logo, col_titulo = st.columns()
+# --- CORRIGIDO: Passado o argumento [1, 4] para definir a proporção das colunas ---
+col_logo, col_titulo = st.columns([1, 4])
 with col_logo:
     st.markdown(
         "<div style='font-size: 55px; text-align: center; margin-top: -5px;'>🏛️</div>", 
@@ -53,12 +53,11 @@ st.markdown(
 if "lista_arquivos" not in st.session_state:
     st.session_state.lista_arquivos = []
 if "config_paginas" not in st.session_state:
-    st.session_state.config_paginas = []
-# Chave dinâmica para forçar a limpeza do componente de upload
+    st.session_state.config_paginas = {}
 if "uploader_key" not in st.session_state:
     st.session_state.uploader_key = 0
 
-# Campo para upload de múltiplos arquivos (usa chave dinâmica para permitir reset completo)
+# Campo para upload de múltiplos arquivos
 arquivos_enviados = st.file_uploader(
     "Escolha os arquivos PDF", 
     type="pdf", 
@@ -81,11 +80,11 @@ if st.session_state.lista_arquivos:
     lista = st.session_state.lista_arquivos
     tamanho = len(lista)
     
-    # --- NOVO: Botão Limpar Tudo ---
+    # Botão Limpar Tudo
     if st.button("🗑️ Limpar Todos os Arquivos", type="secondary"):
         st.session_state.lista_arquivos = []
         st.session_state.config_paginas = {}
-        st.session_state.uploader_key += 1  # Muda a chave para resetar visualmente o uploader
+        st.session_state.uploader_key += 1
         st.rerun()
         
     st.subheader("🔄 1. Organizar Sequência e Filtro de Páginas")
@@ -102,7 +101,8 @@ if st.session_state.lista_arquivos:
 
         # Cria uma caixa visual para cada arquivo
         with st.container(border=True):
-            col_nome, col_paginas, col_subir, col_descer = st.columns()
+            # CORRIGIDO: Passado o argumento [4, 3, 1, 1] para dimensionar as colunas internas de controle
+            col_nome, col_paginas, col_subir, col_descer = st.columns([4, 3, 1, 1])
             
             with col_nome:
                 st.write(f"**{i+1}.** `{arq_atual.name}`")
@@ -116,9 +116,6 @@ if st.session_state.lista_arquivos:
                     placeholder="Deixe vazio para todas",
                     key=chave_pag
                 )
-                # Garante inicialização do dicionário se necessário
-                if isinstance(st.session_state.config_paginas, list):
-                    st.session_state.config_paginas = {}
                 st.session_state.config_paginas[arq_atual.name] = intervalo
                 
             with col_subir:
@@ -150,9 +147,7 @@ if st.session_state.lista_arquivos:
                         reader = PdfReader(io.BytesIO(pdf_bytes))
                         total_pags = len(reader.pages)
                         
-                        filtro = ""
-                        if isinstance(st.session_state.config_paginas, dict):
-                            filtro = st.session_state.config_paginas.get(arquivo_pdf.name, "").strip()
+                        filtro = st.session_state.config_paginas.get(arquivo_pdf.name, "").strip()
                         
                         if filtro:
                             paginas_a_incluir = []
