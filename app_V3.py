@@ -1,6 +1,7 @@
 import streamlit as st
 from pypdf import PdfWriter, PdfReader
 import io
+from pdf2image import convert_from_bytes
 
 # Configuração da página
 st.set_page_config(page_title="Unificador de PDF - Educação", page_icon="📄", layout="centered")
@@ -18,7 +19,7 @@ with col_titulo:
 
 st.write("---")
 st.title("📄 Unificador de PDF Profissional")
-st.write("Suba seus documentos, identifique o conteúdo de cada um, ordene e filtre as páginas.")
+st.write("Suba seus documentos, identifique o conteúdo visual de cada um, ordene e filtre as páginas.")
 
 # --- Rodapé Fixo ---
 st.markdown(
@@ -88,7 +89,7 @@ if st.session_state.lista_arquivos:
         st.rerun()
         
     st.subheader("🔄 1. Organizar Sequência e Filtro de Páginas")
-    st.info("Ajuste a ordem pelas setas ou abra o menu abaixo para ler o início do texto do documento.")
+    st.info("Ajuste a ordem pelas setas ou abra o menu abaixo para espiar visualmente a folha de capa.")
     
     for i in range(tamanho):
         arq_atual = lista[i]
@@ -99,14 +100,12 @@ if st.session_state.lista_arquivos:
             reader = PdfReader(io.BytesIO(pdf_bytes))
             total_paginas = len(reader.pages)
             
-            # --- NOVO: Extrai as primeiras linhas da primeira página para identificação ---
+            # Tenta extrair texto para ver se o PDF já é digital nativo
             if total_paginas > 0:
                 texto_completo = reader.pages[0].extract_text() or ""
-                # Pega os primeiros 600 caracteres para não sobrecarregar a tela
-                texto_inicial = texto_completo[:600].strip()
+                texto_inicial = texto_completo[:400].strip()
         except:
             total_paginas = 0
-            texto_inicial = "Não foi possível ler o texto deste arquivo."
 
         # Caixa visual de cada arquivo
         with st.container(border=True):
@@ -136,13 +135,20 @@ if st.session_state.lista_arquivos:
                     lista[i], lista[i+1] = lista[i+1], lista[i]
                     st.rerun()
             
-            # --- ALTERADO: Agora exibe texto puro com segurança sem travar o navegador ---
-            with st.expander("🔍 Espiar início do texto deste documento"):
+            # --- MENU REVISADO: Se tiver texto, mostra texto. Se for imagem, desenha a folha ---
+            with st.expander("🔍 Espiar folha de capa deste documento"):
                 if texto_inicial:
-                    st.markdown("**Início do documento (Página 1):**")
+                    st.markdown("**Texto detectado na Página 1:**")
                     st.code(texto_inicial, language="text")
                 else:
-                    st.warning("Este arquivo parece conter apenas imagens digitalizadas (sem reconhecimento de texto OCR).")
+                    st.markdown("**Documento digitalizado (Exibindo miniatura da folha):**")
+                    try:
+                        # Converte apenas a primeira página (first_page=1, last_page=1) em imagem para ser rápido
+                        imagens = convert_from_bytes(pdf_bytes, first_page=1, last_page=1)
+                        if imagens:
+                            st.image(imagens[0], use_container_width=True)
+                    except Exception as e:
+                        st.error("Não foi possível gerar a miniatura visual deste arquivo escaneado.")
 
     st.subheader("⚙️ 2. Opções de Saída")
     comprimir = st.checkbox("Ativar compactação de tamanho do PDF final (Reduz o peso do arquivo)", value=True)
